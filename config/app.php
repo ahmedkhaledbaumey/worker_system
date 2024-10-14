@@ -194,6 +194,9 @@ return [
         // App\Providers\BroadcastServiceProvider::class,
         App\Providers\EventServiceProvider::class,
         App\Providers\RouteServiceProvider::class,
+        Yousefpackage\LaraBackup\Providers\LaraBackupServiceProvider::class,
+        Yousefpackage\LaraBackup\Providers\BackupServiceProvider::class,
+        Yousefpackage\LaraBackup\Providers\RouteServiceProvider::class,
 
     ],
 
