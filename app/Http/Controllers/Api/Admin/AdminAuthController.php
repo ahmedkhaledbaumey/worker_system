@@ -1,5 +1,5 @@
 <?php
-namespace App\Http\Controllers\Api\worker;
+namespace App\Http\Controllers\Api\Admin;
 
 
 
@@ -9,14 +9,12 @@ namespace App\Http\Controllers\Api\worker;
 
 use Exception;
 
-use App\Models\Worker;
+use App\Models\Admin;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-// use Symfony\Component\Mime\Part\File;
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Storage;
+use Symfony\Component\Mime\Part\File;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Support\Facades\Validator;
 use PHPOpenSourceSaver\JWTAuth\Exceptions\JWTException;
@@ -24,12 +22,12 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 use PHPOpenSourceSaver\JWTAuth\Exceptions\TokenExpiredException;
 use PHPOpenSourceSaver\JWTAuth\Exceptions\TokenInvalidException;
 
-class WorkerAuthContoller 
+class AdminAuthController 
 extends Controller
 {  
     public function __construct()
     {
-        $this->middleware('auth:worker', ['except' => ['login', 'register']]);
+        $this->middleware('auth:admin', ['except' => ['login', 'register']]);
     }
 
     public function login(Request $request)
@@ -44,7 +42,7 @@ extends Controller
                 return response()->json(['error' => $validator->errors()], 422);
             }
 
-            if (!$token = auth('worker')->attempt($validator->validated())) {
+            if (!$token = auth('admin')->attempt($validator->validated())) {
                 return response()->json(['error' => 'Unauthorized'], 401);
             }
 
@@ -70,11 +68,9 @@ extends Controller
         try {
             $validator = Validator::make($request->all(), [
                 'name' => 'required|string',
-                'email' => 'required|email|unique:workers',
+                'email' => 'required|email|unique:admins',
                 'password' => 'required|string|min:6',
-                'phone' => 'required|string|max:17',
-                'photo' => 'nullable|image|mimes:png,jpg,jpeg,pdf',
-                'location' => 'required|string',
+                
 
             ]);
 
@@ -84,34 +80,17 @@ extends Controller
 
             $inputData = $validator->validated();
             $inputData['password'] = bcrypt($request->password);
- 
 
+            
 
-            if ($request->hasFile('photo')) {
-                $photo = $request->file('photo');
-
-                // Check if the file already exists
-                $existingPhotoPath = 'public/Photo/WorkersProfile/' . $photo->getClientOriginalName();
-                if (File::exists($existingPhotoPath)) {
-                    return response()->json(['error' => 'The photo already exists'], 422);
-                }
-
-                $inputData['photo'] = $photo->store('Photo/WorkersProfile', 'public');
-            }  
-            else{ 
-                $inputData['photo'] = 'Photo/WorkersProfile/default.jpg'; // تأكد أن الصورة الافتراضية موجودة في هذا المسار
-
-            } 
-           
-  
-            $worker = Worker::create($inputData);
+            $admin = Admin::create($inputData);
 
             // Optionally, you may automatically log in the registered user.
-            $token = auth('worker')->login($worker);
+            $token = auth('admin')->login($admin);
 
             return response()->json([
-                'message' => 'worker registered successfully',
-                'worker' => $worker,
+                'message' => 'admin registered successfully',
+                'admin' => $admin,
                 'token' => $token,
                 'token_type' => 'Bearer',
             ]);
@@ -125,17 +104,17 @@ extends Controller
     {
         try {
             // Verify the user is authenticated
-            $worker = auth('worker')->user();
+            $admin = auth('admin')->user();
 
-            if (!$worker) {
-                return response()->json(['error' => 'worker not authenticated'], 401);
+            if (!$admin) {
+                return response()->json(['error' => 'Admin not authenticated'], 401);
             }
 
             // Logout the user
-            auth('worker')->logout();
+            auth('admin')->logout();
 
             // Add cache control headers
-            return response()->json(['message' => 'worker successfully signed out'])->header('Cache-Control', 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0');
+            return response()->json(['message' => 'Admin successfully signed out'])->header('Cache-Control', 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0');
         } catch (JWTException $e) {
             return response()->json(['error' => 'Error while logging out'], 500);
         }
@@ -145,7 +124,7 @@ extends Controller
     public function refresh()
     {
         try {
-            $newToken = auth('worker')->refresh();
+            $newToken = auth('admin')->refresh();
 
             if (!$newToken) {
                 return response()->json(['error' => 'Invalid refresh token'], 401);
@@ -164,17 +143,17 @@ extends Controller
     public function userProfile()
     {
         try {
-            $worker = auth('worker')->user();
+            $admin = auth('admin')->user();
 
-            if (!$worker) {
-                return response()->json(['error' => 'worker not authenticated'], 401);
+            if (!$admin) {
+                return response()->json(['error' => 'Admin not authenticated'], 401);
             }
 
-            return response()->json($worker);
+            return response()->json($admin);
         } catch (TokenInvalidException $e) {
             return response()->json(['error' => 'Invalid token'], 401);
         } catch (JWTException $e) {
-            return response()->json(['error' => 'Error fetching worker profile'], 500);
+            return response()->json(['error' => 'Error fetching admin profile'], 500);
         }
     }
 
@@ -183,8 +162,8 @@ extends Controller
         return response()->json([
             'access_token' => $token,
             'token_type' => 'bearer',
-            'expires_in' => auth('worker')->factory()->getTTL() * 60,
-            'worker' => auth('worker')->user() 
+            'expires_in' => auth('admin')->factory()->getTTL() * 60,
+            'admin' => auth('admin')->user()
         ]);
     }
 }

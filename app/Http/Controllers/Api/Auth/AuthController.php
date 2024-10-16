@@ -1,5 +1,5 @@
 <?php
-namespace App\Http\Controllers\Api\Client;
+namespace App\Http\Controllers\Api\Auth;
 
 
 
@@ -9,31 +9,33 @@ namespace App\Http\Controllers\Api\Client;
 
 use Exception;
 
+
+use App\Models\Admin;
 use App\Models\Client;
+use App\Models\Worker;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
-// use Symfony\Component\Mime\Part\File;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Auth\AuthenticationException;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Auth\AuthenticationException;
 use PHPOpenSourceSaver\JWTAuth\Exceptions\JWTException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use PHPOpenSourceSaver\JWTAuth\Exceptions\TokenExpiredException;
 use PHPOpenSourceSaver\JWTAuth\Exceptions\TokenInvalidException;
 
-class ClientAuthContoller 
+class AuthController 
 extends Controller
 {  
     public function __construct()
     {
-        $this->middleware('auth:client', ['except' => ['login', 'register']]);
+        $this->middleware('auth:admin', ['except' => ['login', 'register']]);
     }
 
-    public function login(Request $request)
-    {
+    public function login(Request $request , $guard)
+    { 
+        
         try {
             $validator = Validator::make($request->all(), [
                 'email' => 'required|email',
@@ -44,11 +46,11 @@ extends Controller
                 return response()->json(['error' => $validator->errors()], 422);
             }
 
-            if (!$token = auth('client')->attempt($validator->validated())) {
+            if (!$token = auth($guard)->attempt($validator->validated())) {
                 return response()->json(['error' => 'Unauthorized'], 401);
             }
 
-            return $this->createNewToken($token); 
+            return $this->createNewToken($token, $guard); 
             
 
         } catch (TokenExpiredException $e) {
@@ -65,16 +67,31 @@ extends Controller
     }
 
 
-    public function register(Request $request)
-    {
+    public function register(Request $request ,$guard)
+    { 
+        switch ($guard) {
+            case 'admin': 
+                $model = Admin::class;
+                break;
+            case 'client': 
+                $model = Client::class;
+                break;
+            case 'worker': 
+                $model = Worker::class;
+                break;
+            
+            default:
+            $model = Admin::class;
+            break;
+        }
         try {
             $validator = Validator::make($request->all(), [
                 'name' => 'required|string',
-                'email' => 'required|email|unique:clients',
+                'email' => 'required|email|unique:'.$guard.'s',
                 'password' => 'required|string|min:6',
-                'phone' => 'required|string|max:17',
+                'phone' => 'nullable|string|max:17',
                 'photo' => 'nullable|image|mimes:png,jpg,jpeg,pdf',
-                'location' => 'required|string',
+                'location' => 'nullable|string',
 
             ]);
 
@@ -84,34 +101,33 @@ extends Controller
 
             $inputData = $validator->validated();
             $inputData['password'] = bcrypt($request->password);
- 
 
-
+            
             if ($request->hasFile('photo')) {
                 $photo = $request->file('photo');
 
                 // Check if the file already exists
-                $existingPhotoPath = 'public/Photo/ClientsProfile/' . $photo->getClientOriginalName();
+                $existingPhotoPath = 'public/Photo/'.$model.'sProfile/' . $photo->getClientOriginalName();
                 if (File::exists($existingPhotoPath)) {
                     return response()->json(['error' => 'The photo already exists'], 422);
                 }
 
-                $inputData['photo'] = $photo->store('Photo/ClientsProfile', 'public');
+                $inputData['photo'] = $photo->store('Photo/'.$model.'sProfile', 'public');
             }  
             else{ 
                 $inputData['photo'] = 'Photo/ClientsProfile/default.jpg'; // تأكد أن الصورة الافتراضية موجودة في هذا المسار
 
             } 
            
-  
-            $client = client::create($inputData);
+
+            $admin = $model::create($inputData);
 
             // Optionally, you may automatically log in the registered user.
-            $token = auth('client')->login($client);
+            $token = auth($guard)->login($admin);
 
             return response()->json([
-                'message' => 'client registered successfully',
-                'client' => $client,
+                'message' => 'admin registered successfully',
+                'admin' => $admin,
                 'token' => $token,
                 'token_type' => 'Bearer',
             ]);
@@ -121,37 +137,37 @@ extends Controller
     }
 
 
-    public function logout()
+    public function logout($guard)
     {
         try {
             // Verify the user is authenticated
-            $client = auth('client')->user();
+            $admin = auth($guard)->user();
 
-            if (!$client) {
-                return response()->json(['error' => 'client not authenticated'], 401);
+            if (!$admin) {
+                return response()->json(['error' => ' not authenticated'], 401);
             }
 
             // Logout the user
-            auth('client')->logout();
+            auth($guard)->logout();
 
             // Add cache control headers
-            return response()->json(['message' => 'client successfully signed out'])->header('Cache-Control', 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0');
+            return response()->json(['message' => ' successfully signed out'])->header('Cache-Control', 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0');
         } catch (JWTException $e) {
             return response()->json(['error' => 'Error while logging out'], 500);
         }
     }
 
 
-    public function refresh()
+    public function refresh($guard)
     {
         try {
-            $newToken = auth('client')->refresh();
+            $newToken = auth($guard)->refresh();
 
             if (!$newToken) {
                 return response()->json(['error' => 'Invalid refresh token'], 401);
             }
 
-            return $this->createNewToken($newToken);
+            return $this->createNewToken($newToken, $guard);
         } catch (TokenExpiredException $e) {
             return response()->json(['error' => 'Token has expired'], 401);
         } catch (TokenInvalidException $e) {
@@ -161,30 +177,30 @@ extends Controller
         }
     }
 
-    public function userProfile()
+    public function userProfile($guard)
     {
         try {
-            $client = auth('client')->user();
+            $admin = auth($guard)->user();
 
-            if (!$client) {
-                return response()->json(['error' => 'client not authenticated'], 401);
+            if (!$admin) {
+                return response()->json(['error' => ' not authenticated'], 401);
             }
 
-            return response()->json($client);
+            return response()->json($admin);
         } catch (TokenInvalidException $e) {
             return response()->json(['error' => 'Invalid token'], 401);
         } catch (JWTException $e) {
-            return response()->json(['error' => 'Error fetching client profile'], 500);
+            return response()->json(['error' => 'Error fetching  profile'], 500);
         }
     }
 
-    protected function createNewToken($token)
+    protected function createNewToken($token,$guard)
     {
         return response()->json([
             'access_token' => $token,
             'token_type' => 'bearer',
-            'expires_in' => auth('client')->factory()->getTTL() * 60,
-            'client' => auth('client')->user() 
+            'expires_in' => auth('admin')->factory()->getTTL() * 60,
+            'admin' => auth($guard)->user()
         ]);
     }
 }

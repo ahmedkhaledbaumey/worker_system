@@ -21,3 +21,4 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 require __DIR__ . '/Apis/Admin/AdminAuth.php';
 require __DIR__ . '/Apis/Worker/WorkerAuth.php';
 require __DIR__ . '/Apis/Client/ClientAuth.php';
+require __DIR__ . '/Apis/Auth/Auth.php';
