@@ -48,19 +48,36 @@ class LoginService
         }
         return $token;
     }
-
+    // public function getStatus($email)
+    // {
+    //     $user = $this->model->where('email', $email)->first();
+    
+    //     if (!$user) {
+    //         // إذا لم يتم العثور على المستخدم
+    //         return null ; 
+    //     }
+    
+    //     return $user->status;
+    // }
+    
     public function getStatus($email)
     {
         $user = $this->model->where('email', $email)->first();
-        if ($user) {
-            if ($user->status == 0) {
-                return response()->json('Your account is pending', 403);
-            } else {
-                return $user;
-            }
+    
+        if (!$user) {
+            // إذا لم يتم العثور على المستخدم
+            return response()->json(['error' => 'User not found'], 404);
         }
-        return response()->json('User not found', 404);
+    
+        if ($user->status == 0) {
+            // إذا كان الحساب غير مفعل
+            return response()->json(['error' => 'Account is not active'], 401);
+        }
+    
+        return $user; // إعادة المستخدم إذا كان كل شيء صحيح
     }
+    
+
 
     protected function createNewToken($token, $guard)
     {
@@ -72,14 +89,48 @@ class LoginService
         ]);
     }
 
+
+
+
     public function login($request, $guard)
-    {
-        $data = $this->validation($request);
+{
+    $data = $this->validation($request);
 
-        $token = $this->isValid($data);
+    // الحصول على المستخدم أو رسالة الخطأ من دالة getStatus
+    $statusResponse = $this->getStatus($request->email);
 
-        $this->getStatus($request->email);
-
-        return $this->createNewToken($token, $guard);
+    // إذا كانت النتيجة استجابة، قم بإعادتها
+    if ($statusResponse instanceof \Illuminate\Http\JsonResponse) {
+        return $statusResponse;
     }
+
+    // تابع عملية التحقق وإنشاء التوكين
+    $token = $this->isValid($data);
+
+    return $this->createNewToken($token, $guard);
+}
+
+
+//     public function login($request, $guard)
+// {
+//     $data = $this->validation($request);
+
+//     $status = $this->getStatus($request->email);
+    
+//     if (is_null($status)) {
+//         // إعادة الاستجابة الخاصة بعدم العثور على المستخدم
+//         return response()->json(['error' => 'User not found'], 404);
+//     }
+
+//     $token = $this->isValid($data);
+
+//     if ($status == 0) {
+//         return response()->json(['error' => 'Account is not active'], 401);
+//     }
+
+//     return $this->createNewToken($token, $guard);
+// }
+
+//الطريقتين شغالين بس دي جديده خالص      
+
 }

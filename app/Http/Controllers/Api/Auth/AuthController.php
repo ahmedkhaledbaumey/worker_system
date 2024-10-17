@@ -37,29 +37,29 @@ extends Controller
 
     public function login(LoginRequest $request, $guard)
     { 
+//لو احتاجت اللوجيك موجود فالكنرولر الممنفصله  او فالسيرفس بس روح للكنترولر 
 
-        // استخدام خدمة تسجيل الدخول
         return (new LoginService($guard))->login($request, $guard);
     }
 
 
     public function register(Request $request ,$guard)
     { 
-        // switch ($guard) {
-        //     case 'admin': 
-        //         $model = Admin::class;
-        //         break;
-        //     case 'client': 
-        //         $model = Client::class;
-        //         break;
-        //     case 'worker': 
-        //         $model = Worker::class;
-        //         break;
+        switch ($guard) {
+            case 'admin': 
+                $model = Admin::class;
+                break;
+            case 'client': 
+                $model = Client::class;
+                break;
+            case 'worker': 
+                $model = Worker::class;
+                break;
             
-        //     default:
-        //     $model = Admin::class;
-        //     break;
-        // }
+            default:
+            $model = Admin::class;
+            break;
+        }
         try {
             $validator = Validator::make($request->all(), [
                 'name' => 'required|string',
@@ -96,7 +96,7 @@ extends Controller
             } 
            
 
-            $admin = $guard::create($inputData);
+            $admin = $model::create($inputData);
 
             // Optionally, you may automatically log in the registered user.
             $token = auth($guard)->login($admin);
