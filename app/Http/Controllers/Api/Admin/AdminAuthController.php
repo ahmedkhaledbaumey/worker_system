@@ -68,14 +68,14 @@ extends Controller
         try {
             $validator = Validator::make($request->all(), [
                 'name' => 'required|string',
-                'email' => 'required|email|unique:admins',
+                'email' => 'required|email|unique:clients',
                 'password' => 'required|string|min:6',
-                
+               
 
             ]);
 
             if ($validator->fails()) {
-                return response()->json(['error' => $validator->errors()->first()], 422);
+                return response()->json(['error' => $validator->errors()], 422);
             }
 
             $inputData = $validator->validated();
@@ -162,7 +162,7 @@ extends Controller
         return response()->json([
             'access_token' => $token,
             'token_type' => 'bearer',
-            'expires_in' => auth('admin')->factory()->getTTL() * 60,
+            'expires_in' => auth()->factory()->getTTL() * 60,
             'admin' => auth('admin')->user()
         ]);
     }

@@ -15,6 +15,8 @@ use App\Models\Client;
 use App\Models\Worker;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Auth\LoginRequest;
+use App\Services\Auth\LoginService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
@@ -33,57 +35,31 @@ extends Controller
         $this->middleware('auth:admin', ['except' => ['login', 'register']]);
     }
 
-    public function login(Request $request , $guard)
+    public function login(LoginRequest $request, $guard)
     { 
-        
-        try {
-            $validator = Validator::make($request->all(), [
-                'email' => 'required|email',
-                'password' => 'required|string|min:6',
-            ]);
 
-            if ($validator->fails()) {
-                return response()->json(['error' => $validator->errors()], 422);
-            }
-
-            if (!$token = auth($guard)->attempt($validator->validated())) {
-                return response()->json(['error' => 'Unauthorized'], 401);
-            }
-
-            return $this->createNewToken($token, $guard); 
-            
-
-        } catch (TokenExpiredException $e) {
-            return response()->json(['error' => 'Token has expired'], 401);
-        } catch (TokenInvalidException $e) {
-            return response()->json(['error' => 'Invalid token'], 401);
-        } catch (JWTException $e) {
-            return response()->json(['error' => 'Error while processing the token'], 500);
-        } catch (AuthenticationException $e) {
-            return response()->json(['error' => 'Unauthenticated'], 401);
-        } catch (HttpException $e) {
-            return response()->json(['error' => $e->getMessage()], $e->getStatusCode());
-        }
+        // استخدام خدمة تسجيل الدخول
+        return (new LoginService($guard))->login($request, $guard);
     }
 
 
     public function register(Request $request ,$guard)
     { 
-        switch ($guard) {
-            case 'admin': 
-                $model = Admin::class;
-                break;
-            case 'client': 
-                $model = Client::class;
-                break;
-            case 'worker': 
-                $model = Worker::class;
-                break;
+        // switch ($guard) {
+        //     case 'admin': 
+        //         $model = Admin::class;
+        //         break;
+        //     case 'client': 
+        //         $model = Client::class;
+        //         break;
+        //     case 'worker': 
+        //         $model = Worker::class;
+        //         break;
             
-            default:
-            $model = Admin::class;
-            break;
-        }
+        //     default:
+        //     $model = Admin::class;
+        //     break;
+        // }
         try {
             $validator = Validator::make($request->all(), [
                 'name' => 'required|string',
@@ -107,12 +83,12 @@ extends Controller
                 $photo = $request->file('photo');
 
                 // Check if the file already exists
-                $existingPhotoPath = 'public/Photo/'.$model.'sProfile/' . $photo->getClientOriginalName();
+                $existingPhotoPath = 'public/Photo/'.$guard.'sProfile/' . $photo->getClientOriginalName();
                 if (File::exists($existingPhotoPath)) {
                     return response()->json(['error' => 'The photo already exists'], 422);
                 }
 
-                $inputData['photo'] = $photo->store('Photo/'.$model.'sProfile', 'public');
+                $inputData['photo'] = $photo->store('Photo/'.$guard.'sProfile', 'public');
             }  
             else{ 
                 $inputData['photo'] = 'Photo/ClientsProfile/default.jpg'; // تأكد أن الصورة الافتراضية موجودة في هذا المسار
@@ -120,7 +96,7 @@ extends Controller
             } 
            
 
-            $admin = $model::create($inputData);
+            $admin = $guard::create($inputData);
 
             // Optionally, you may automatically log in the registered user.
             $token = auth($guard)->login($admin);
@@ -199,7 +175,7 @@ extends Controller
         return response()->json([
             'access_token' => $token,
             'token_type' => 'bearer',
-            'expires_in' => auth('admin')->factory()->getTTL() * 60,
+            'expires_in' => auth()->factory()->getTTL() * 60,
             'admin' => auth($guard)->user()
         ]);
     }

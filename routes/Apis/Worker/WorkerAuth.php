@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\Worker\WorkerAuthController;
 
 
-Route::prefix('admin/auth')->middleware('DbBackup')->controller(WorkerAuthController::class)->group(function () {
+Route::prefix('worker/auth')->middleware('DbBackup')->controller(WorkerAuthController::class)->group(function () {
     Route::post('/login', 'login');
     Route::post('/register', 'register');
     Route::post('/logout', 'logout');
