@@ -6,6 +6,15 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class RegisterRequest extends FormRequest
 {
+    // protected $guard; // متغير الحارس
+
+    // // تمرير الحارس عند إنشاء الكلاس
+    // public function __construct($guard)
+    // {
+    //     parent::__construct(); // استدعاء البناء الأصلي لـ FormRequest
+    //     $this->guard = $guard; // تخزين الحارس في المتغير المحلي
+    // }
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -21,12 +30,16 @@ class RegisterRequest extends FormRequest
      */
     public function rules(): array
     {
+        $guard = $this->route('guard'); // الحصول على الحارس من مسار الطلب
+    
         return [
             'name' => 'required|string',
-            'email' => 'required|email|unique:'.$guard.'s',
+            'email' => 'required|email|unique:' . $guard . 's', // تأكد من أن اسم الجدول صحيح هنا
             'password' => 'required|string|min:6',
             'phone' => 'nullable|string|max:17',
             'photo' => 'nullable|image|mimes:png,jpg,jpeg,pdf',
-            'location' => 'nullable|string',        ];
+            'location' => 'nullable|string',
+        ];
     }
+    
 }

@@ -106,10 +106,11 @@ class LoginService
 
     // تابع عملية التحقق وإنشاء التوكين
     $token = $this->isValid($data);
-
+    
     return $this->createNewToken($token, $guard);
 }
 
+//الطريقتين شغالين بس دي جديده خالص      
 
 //     public function login($request, $guard)
 // {
@@ -131,6 +132,5 @@ class LoginService
 //     return $this->createNewToken($token, $guard);
 // }
 
-//الطريقتين شغالين بس دي جديده خالص      
 
 }
