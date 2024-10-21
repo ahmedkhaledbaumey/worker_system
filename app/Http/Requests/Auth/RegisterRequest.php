@@ -40,6 +40,16 @@ class RegisterRequest extends FormRequest
             'photo' => 'nullable|image|mimes:png,jpg,jpeg,pdf',
             'location' => 'nullable|string',
         ];
-    }
+    } 
+
+    //   public function messages(): array
+    // {
+    //     return [
+    //         'email.unique' => 'email is in used ', // الرسالة المخصصة لحقل البريد الإلكتروني عند تكراره
+    //         'name.required' => 'The name field is required.', // تخصيص الرسالة لحقل الاسم
+    //         'password.required' => 'The password field is required.', // تخصيص الرسالة لحقل كلمة المرور
+    //         // يمكنك إضافة المزيد من الرسائل المخصصة هنا
+    //     ];
+    // }
     
 }

@@ -6,6 +6,9 @@ use Illuminate\Support\Facades\Validator;
 use App\Models\Admin;
 use App\Models\Client;
 use App\Models\Worker;
+use Illuminate\Database\Events\TransactionBeginning;
+use Illuminate\Support\Facades\DB;
+use Yousefpackage\LaraBackup\Models\DbAlert;
 
 class LoginService
 {
@@ -35,9 +38,9 @@ class LoginService
     public function validation($request)
     {
         $validator = Validator::make($request->all(), $request->rules());
-        if ($validator->fails()) {
-            return response()->json($validator->errors(), 422);
-        }
+        // if ($validator->fails()) {
+        //     return response()->json($validator->errors(), 422);
+        // }
         return $validator;
     }
 
@@ -47,6 +50,20 @@ class LoginService
             return response()->json(['error' => 'Invalid data'], 401);
         }
         return $token;
+    }
+    public function isVerified($email)
+    {
+        $user = $this->model->where('email', $email)->lockForUpdate()->first();
+        if (!$user) {
+            // إذا لم يتم العثور على المستخدم
+            return response()->json(['error' => 'User not found'], 404);
+        }
+    
+        if ($user->verified_at == null) { 
+            // إذا كان الحساب غير مفعل
+            return response()->json(['error' => 'Account is not verified'], 401);
+        }
+    return $user;
     }
     // public function getStatus($email)
     // {
@@ -62,7 +79,7 @@ class LoginService
     
     public function getStatus($email)
     {
-        $user = $this->model->where('email', $email)->first();
+        $user = $this->model->where('email', $email)->lockForUpdate()->first();
     
         if (!$user) {
             // إذا لم يتم العثور على المستخدم
@@ -71,7 +88,7 @@ class LoginService
     
         if ($user->status == 0) {
             // إذا كان الحساب غير مفعل
-            return response()->json(['error' => 'Account is not active'], 401);
+            return response()->json(['error' => 'Account is pending'], 401);
         }
     
         return $user; // إعادة المستخدم إذا كان كل شيء صحيح
@@ -93,23 +110,39 @@ class LoginService
 
 
     public function login($request, $guard)
-{
-    $data = $this->validation($request);
-
-    // الحصول على المستخدم أو رسالة الخطأ من دالة getStatus
-    $statusResponse = $this->getStatus($request->email);
-
-    // إذا كانت النتيجة استجابة، قم بإعادتها
-    if ($statusResponse instanceof \Illuminate\Http\JsonResponse) {
+{ 
+    try { 
+     DB::beginTransaction() ;
+        $data = $this->validation($request);
+        $token = $this->isValid($data); 
+        
+        // الحصول على المستخدم أو رسالة الخطأ من دالة getStatus
+        
+        // إذا كانت النتيجة استجابة، قم بإعادتها
+        if($this->guard == 'worker'){ 
+            
+            $verifiedResponse = $this->isverified($request->email);
+            if ($verifiedResponse instanceof \Illuminate\Http\JsonResponse) {
+                return $verifiedResponse;
+            }
+        }
+        
+        $statusResponse = $this->getStatus($request->email);
+        if ($statusResponse instanceof \Illuminate\Http\JsonResponse) {
         return $statusResponse;
-    }
-
+    }  
     // تابع عملية التحقق وإنشاء التوكين
-    $token = $this->isValid($data);
-    
-    return $this->createNewToken($token, $guard);
-}
 
+    
+    DB::commit() ; 
+        return $this->createNewToken($token, $guard);
+    
+} catch (\Throwable $th) {
+DB::rollBack() ;  
+return response()->json(['message' => 'internal server error ' ], 500);
+
+}
+}
 //الطريقتين شغالين بس دي جديده خالص      
 
 //     public function login($request, $guard)

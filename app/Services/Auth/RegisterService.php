@@ -5,6 +5,7 @@ namespace App\Services\Auth;
 use App\Models\Admin;
 use App\Models\Client;
 use App\Models\Worker;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Validator;
 
@@ -32,7 +33,7 @@ class RegisterService {
 
     public function validation($request)
     {
-        $validator = Validator::make($request->all(), $request->rules());
+        $validator = Validator::make($request->all(), $request->rules([]));
 
         if ($validator->fails()) {
             return response()->json($validator->errors(), 422);
@@ -65,26 +66,38 @@ class RegisterService {
     public function generate_token($email)
     {
         $token = substr(md5(rand(0, 9) . $email . time()), 0, 32);  
-        $worker  = $this->model->where('email', $email)->first();  // التحقق من الايميل القيد للتأكد من التكرار
+        $worker = $this->model->where('email', $email)->lockForUpdate()->first(); // قفل الصف
+        // التحقق من الايميل القيد للتأكد من التكرار
         $worker->verification_token = $token; 
         $worker->save(); 
         return $worker;
     }
 
     public function register($request)
-    {
-        $validatedData = $this->validation($request);
-        if ($validatedData instanceof \Illuminate\Http\JsonResponse) {
-            return $validatedData;
-        }
+    { 
 
-        $user = $this->store($validatedData); 
-     if($this->guard == 'worker'){ 
-
-         $token = $this->generate_token($user->email); // إنشاء التوكن
-     } 
-
-
-        return response()->json(['message' => 'Account has been created, please check your email'], 200);
+try { 
+    DB::beginTransaction() ;
+    $validatedData = $this->validation($request);
+    if ($validatedData instanceof \Illuminate\Http\JsonResponse) {
+        return $validatedData;
     }
+    
+    $user = $this->store($validatedData); 
+    if($this->guard == 'worker'){ 
+        
+     $this->generate_token($user->email); // إنشاء التوكن
+        
+    } 
+    DB::commit() ; 
+
+    return response()->json(['message' => 'Account has been created, please check your email'], 200);
+    
+} catch (\Throwable $th) {
+    DB::rollBack() ;   
+    return response()->json(['message' => 'internal server error ' ], 500);
+
+
+}
+}
 }
