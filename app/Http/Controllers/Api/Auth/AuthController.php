@@ -14,15 +14,16 @@ use App\Models\Admin;
 use App\Models\Client;
 use App\Models\Worker;
 use Illuminate\Http\Request;
-use App\Http\Controllers\Controller;
-use App\Http\Requests\Auth\LoginRequest;
-use App\Http\Requests\Auth\RegisterRequest;
 use App\Services\Auth\LoginService;
-use App\Services\Auth\RegisterService;
+use App\Http\Controllers\Controller;
+use App\Services\Auth\VerifyService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
+use App\Services\Auth\RegisterService;
+use App\Http\Requests\Auth\LoginRequest;
 use Illuminate\Support\Facades\Validator;
+use App\Http\Requests\Auth\RegisterRequest;
 use Illuminate\Auth\AuthenticationException;
 use PHPOpenSourceSaver\JWTAuth\Exceptions\JWTException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -34,6 +35,8 @@ extends Controller
 {  
     public function __construct()
     {
+        // $guard = $this->route('guard'); // الحصول على الحارس من مسار الطلب
+
         $this->middleware('auth:admin', ['except' => ['login', 'register']]);
     }
 
@@ -121,7 +124,17 @@ extends Controller
 
         return (new RegisterService($guard))->register($request);
 
+    } 
+    public function verifiy($guard, $token)
+{
+    try {
+        $verifyService = new VerifyService($guard);
+        return $verifyService->verifyToken($token);
+    } catch (Exception $e) {
+        return response()->json(['error' => 'Verification failed: ' . $e->getMessage()], 500);
     }
+}
+
 
 
     public function logout($guard)

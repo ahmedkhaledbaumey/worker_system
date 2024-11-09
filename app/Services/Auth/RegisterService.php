@@ -5,8 +5,10 @@ namespace App\Services\Auth;
 use App\Models\Admin;
 use App\Models\Client;
 use App\Models\Worker;
+use App\Mail\VerificationEmail;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 
 class RegisterService {
@@ -64,40 +66,58 @@ class RegisterService {
     }
 
     public function generate_token($email)
-    {
-        $token = substr(md5(rand(0, 9) . $email . time()), 0, 32);  
-        $worker = $this->model->where('email', $email)->lockForUpdate()->first(); // قفل الصف
-        // التحقق من الايميل القيد للتأكد من التكرار
-        $worker->verification_token = $token; 
-        $worker->save(); 
-        return $worker;
+{
+    $token = substr(md5(rand(0, 9) . $email . time()), 0, 32);  
+    $worker = $this->model->where('email', $email)->lockForUpdate()->first(); // قفل الصف
+
+    if (!$worker) {
+        throw new \Exception("User not found");
     }
+
+    $worker->verification_token = $token; 
+    $worker->save(); 
+
+    return $worker; // تأكد من إعادة كائن العامل هنا
+}
+
+    function sendEmail($worker) 
+    { 
+        try {
+            // هنا، worker يجب أن يكون كائن المستخدم وليس سلسلة
+            Mail::to($worker->email)->send(new VerificationEmail($worker)); // تمرير الكائن بدلاً من الاسم فقط
+        } catch (\Exception $e) {
+            throw new \Exception('Error in sending email: ' . $e->getMessage());
+        }
+    } 
+  
+
 
     public function register($request)
     { 
-
-try { 
-    DB::beginTransaction() ;
-    $validatedData = $this->validation($request);
-    if ($validatedData instanceof \Illuminate\Http\JsonResponse) {
-        return $validatedData;
+        try { 
+            DB::beginTransaction();
+            $validatedData = $this->validation($request);
+            
+            if ($validatedData instanceof \Illuminate\Http\JsonResponse) {
+                return $validatedData;
+            }
+            
+            $user = $this->store($validatedData); 
+            
+            $user = $this->generate_token($user->email); // يجب أن يكون كائن Worker
+            
+            // الآن يتم تمرير الكائن الكامل إلى sendEmail
+            $this->sendEmail($user); 
+    
+            DB::commit(); 
+    
+            return response()->json(['message' => 'Account has been created, please check your email'], 200);
+            
+        } catch (\Exception $th) {
+            DB::rollBack();   
+            throw new \Exception('Error in: ' . $th->getMessage());
+        }
     }
     
-    $user = $this->store($validatedData); 
-    if($this->guard == 'worker'){ 
-        
-     $this->generate_token($user->email); // إنشاء التوكن
-        
-    } 
-    DB::commit() ; 
-
-    return response()->json(['message' => 'Account has been created, please check your email'], 200);
-    
-} catch (\Throwable $th) {
-    DB::rollBack() ;   
-    return response()->json(['message' => 'internal server error ' ], 500);
-
-
-}
-}
+   
 }
